@@ -6,15 +6,30 @@
 #include <vector>
 #include <string>
 
-using namespace std;
 
-const string OUTPUT_DIRECTORY = "out/";
-const float BETA_VALUES[] = {0.0, 0.5, 1.0};
+const std::string OUTPUT_DIRECTORY = "out/";
+const float BETA_VALUES[] = {0.05,0.1,0.2,0.5,0.9,1};
+const float BETA_VALUES_LENGTH = 6;
+const bool OUTPUT_VALUES = false;
 
-string getOutputFileString(string input_file) {
-    return OUTPUT_DIRECTORY + input_file.substr(input_file.find_last_of("/\\") + 1);
+const int TIME_LIMIT = 100; //seconds
+
+std::string getOutputFileString(std::string input_file, std::string label) {
+    return OUTPUT_DIRECTORY + label + "_" + input_file.substr(input_file.find_last_of("/\\") + 1);
 }
 
+template <typename T>
+void outputSpaceSeparated(std::vector<T>& v, std::ofstream& output) {
+    for(const T& x: v) {
+        output << x << " ";
+    }
+    output << "\n";
+}
+
+template <typename T>
+void outputKeyValue(const std::string& label, const T& value, std::ofstream& output) {
+    output << label << "=" << value << "\n";
+}
 
 class Instance {
 public:
@@ -64,8 +79,8 @@ public:
         }
     }
 
-    vector<float> getExpectedReturns() {
-        vector<float> expected_returns(n); 
+    std::vector<float> getExpectedReturns() {
+        std::vector<float> expected_returns(n); 
 
         for (int i = 0; i < n; i++) {
             float acc = 0;

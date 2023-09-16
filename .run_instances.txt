@@ -1,0 +1,10 @@
+instances/505x10.txt
+instances/505x50.txt
+instances/505x100.txt
+instances/505x200.txt
+instances/505x500.txt
+instances/505x750.txt
+instances/505x1000.txt
+instances/505x2000.txt
+instances/505x3000.txt
+instances/505x5000.txt

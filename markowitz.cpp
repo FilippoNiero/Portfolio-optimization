@@ -1,13 +1,18 @@
 #include <ilcplex/ilocplex.h>
 #include <vector>
 #include <algorithm>
+#include <chrono>
+
 
 #include "utils.hpp"
 ILOSTLBEGIN
 
 #define DEB(param) std::cout << "test: " << std::string( #param ) << " = " << param << "\n";
 
-void solveForMu0(float mu0, int n, int T, std::vector<float> const &expected_returns, std::vector<std::vector<float>> const &covariance) {
+void solveForMu0(float mu0, int n, int T, std::vector<float> const &expected_returns, std::vector<std::vector<float>> const &covariance, std::ofstream& output) {
+    auto start_mu0 = std::chrono::high_resolution_clock::now();
+    outputKeyValue("mu0", mu0, output);
+    
     IloEnv env;
 
     try {
@@ -42,20 +47,45 @@ void solveForMu0(float mu0, int n, int T, std::vector<float> const &expected_ret
         model.add(expr_expected_return >= mu0);
             
         IloCplex cplex(model);
+        
+        cplex.setOut(env.getNullStream()); // Silence console output
+        cplex.setWarning(env.getNullStream()); // Silence diagonal perturbation warning
+        
+        cplex.setParam(IloCplex::Param::TimeLimit, TIME_LIMIT);
 
         // Optimize the problem and obtain solution.
         if (!cplex.solve()) {
+            if (cplex.getStatus() == IloAlgorithm::Infeasible) {
+                std::cout << "Markowitz: CPLEX terminated due to time limit." << std::endl;
+                output << "time(us)=INF" << std::endl;
+                outputKeyValue("memory(KB)", cplex.getNrows() * 1024 / 1000 , output);
+                return;
+            } 
             env.error() << "Failed to optimize QP" << endl;
             throw(-1);
         }
 
+
         if(cplex.getStatus() == IloAlgorithm::Optimal) {
-            std::cout << "Optimal Portfolio Weights" << std::endl;
-            for(int i = 0; i < n; i++) {
-                std::cout << i << " : " << cplex.getValue(weights[i]) << std::endl;
+            // std::cout << "Optimal Portfolio Weights" << std::endl;
+            // for(int i = 0; i < n; i++) {
+            //     std::cout << i << " : " << cplex.getValue(weights[i]) << std::endl;
+            // }
+            // std::cout << "Variance: " << cplex.getObjValue() << std::endl;
+            // std::cout << "Expected return: " << cplex.getValue(expr_expected_return) << std::endl;
+
+            auto end_mu0 = std::chrono::high_resolution_clock::now();
+
+            outputKeyValue("time(us)", chrono::duration_cast<chrono::microseconds>(end_mu0 - start_mu0).count(), output);
+            outputKeyValue("memory(KB)", (cplex.getNrows() + cplex.getNcols() * cplex.getNcols()) * 1024 / 1000, output);
+            if(OUTPUT_VALUES) {
+                output << "solution ";
+                
+                for (int i = 0; i < n; i++) {
+                    output << cplex.getValue(weights[i]) << " ";
+                }
+                output << '\n';
             }
-            std::cout << "Variance: " << cplex.getObjValue() << std::endl;
-            std::cout << "Expected return: " << cplex.getValue(expr_expected_return) << std::endl;
         }
 
     }catch (...) {
@@ -67,8 +97,16 @@ void solveForMu0(float mu0, int n, int T, std::vector<float> const &expected_ret
 }
 
 void solve(string input_file, string output_file) {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    cout << "Solving "<< output_file << std::endl;
     Instance instance(input_file);
-    instance.print();
+    std::ofstream output(output_file);
+
+    outputKeyValue("tickers", instance.tickers.size(), output);
+    if(OUTPUT_VALUES) outputSpaceSeparated(instance.tickers, output);
+
+    output << "markowitz " << instance.scenario_returns[0].size() << "\n";
 
     // Preprocessing
     
@@ -89,19 +127,30 @@ void solve(string input_file, string output_file) {
             covariance[i][j] = acc / instance.T;
         }    
     }
-    
-    // Print covariance
-    for (const std::vector<float>& cov : covariance) {
-        for (float c : cov) {
-            std::cout << c << ' ';
-        }
-        std::cout << std::endl;
-    }
+    auto end_precalc = std::chrono::high_resolution_clock::now();
+    outputKeyValue("precalc(us)", chrono::duration_cast<chrono::microseconds>(end_precalc - start).count(), output);
+    output << std::endl;
+
+    // // Print covariance
+    // for (const std::vector<float>& cov : covariance) {
+    //     for (float c : cov) {
+    //         std::cout << c << ' ';
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     // Solve for a specific mu0
-    for(float mu0 = 0.01; mu0 <= max_expected_return; mu0 += 0.01) {
-        solveForMu0(mu0, instance.n, instance.T, expected_returns, covariance);
+    for(int i = 1; i <= 100; i++) {
+        solveForMu0(max_expected_return * i / 100 , instance.n, instance.T, expected_returns, covariance, output);
+        std::cout << i << "/" << 100 << "\n";
+        output << std::endl;
     }
+    auto end_total_time = std::chrono::high_resolution_clock::now();
+
+    outputKeyValue("total_time(us)", chrono::duration_cast<chrono::microseconds>(end_total_time - start).count(), output);
+    std::cout << "Solved "<< output_file << std::endl;
+    output.close();
+
 }
 
 int main(int argc, char **argv) {
@@ -111,7 +160,7 @@ int main(int argc, char **argv) {
     }
     string input_file = argv[1];
 
-    string output_file = getOutputFileString(input_file);
+    string output_file = getOutputFileString(input_file, "markowitz");
 
     solve(input_file, output_file);
 

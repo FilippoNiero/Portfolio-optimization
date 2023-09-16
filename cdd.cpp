@@ -1,6 +1,7 @@
 #include <ilcplex/ilocplex.h>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 
 #include "utils.hpp"
 
@@ -8,7 +9,9 @@ ILOSTLBEGIN
 
 #define DEB(param) std::cout << "test: " << std::string( #param ) << " = " << param << "\n";
 
-void solveForMu0(float mu0, int n, int T, float beta, std::vector<std::vector<float>> const &scenario_returns, std::vector<float> const &expected_returns) {
+void solveForMu0(float mu0, int n, int T, float beta, std::vector<std::vector<float>> const &scenario_returns, std::vector<float> const &expected_returns, std::ofstream& output) {
+    auto start_mu0 = std::chrono::high_resolution_clock::now();
+    outputKeyValue("mu0", mu0, output);
 
     float beta_frac = (1.0 - beta) / beta;
     float p = 1.0/T;
@@ -34,12 +37,12 @@ void solveForMu0(float mu0, int n, int T, float beta, std::vector<std::vector<fl
             for (int i = 0; i < n; i++) {
                 tmp += scenario_returns[i][t] * weights[i];
             }
-            DEB(tmp);
             model.add(dn_t[t] - dp_t[t] == eta - tmp);
         }
 
         // Minimize conditionalsemideviation
         IloExpr cdev(env);
+
 
         for (int t = 0; t < T; t++) {
             cdev += (dp_t[t] + beta_frac * dn_t[t]) * p;
@@ -63,31 +66,51 @@ void solveForMu0(float mu0, int n, int T, float beta, std::vector<std::vector<fl
 
         IloCplex cplex(model);
 
-        // cplex.setOut(env.getNullStream()); // Silence console output
+        cplex.setOut(env.getNullStream()); // Silence console output
+
         // Optimize the problem and obtain solution.
         if (!cplex.solve()) {
+            if (cplex.getStatus() == IloAlgorithm::Infeasible) {
+                std::cout << "CDD: CPLEX terminated due to time limit." << std::endl;
+                output << "time(us)=INF" << std::endl;
+                outputKeyValue("memory(KB)", cplex.getNrows() * 1024 / 1000 , output);
+                return;
+            } 
             env.error() << "Failed to optimize LP" << endl;
             throw(-1);
         }
+        cplex.setParam(IloCplex::Param::TimeLimit, TIME_LIMIT);
 
         if (cplex.getStatus() == IloAlgorithm::Optimal) {
-            std::cout << "Expected return: " << cplex.getValue(expr_expected_return) << std::endl;
+            // std::cout << "Expected return: " << cplex.getValue(expr_expected_return) << std::endl;
+            // std::cout << "ETA" << cplex.getValue(eta) << std::endl;
+            // for (int t = 0; t < T; t++) {
+            //     DEB(cplex.getValue(dp_t[t]));
+            // }
 
-            std::cout << "Optimal Portfolio Weights" << std::endl;
-            for (int i = 0; i < n; i++) {
-                std::cout << i << " : " << cplex.getValue(weights[i]) << std::endl;
+            // for (int t = 0; t < T; t++) {
+            //     DEB(cplex.getValue(dn_t[t]));
+            // }
+            // std::cout << "Value: " << cplex.getObjValue() << std::endl;
+
+            auto end_mu0 = std::chrono::high_resolution_clock::now();
+
+            outputKeyValue("time(us)", chrono::duration_cast<chrono::microseconds>(end_mu0 - start_mu0).count(), output);
+            outputKeyValue("memory(KB)", cplex.getNrows() * 1024 / 1000 , output);
+
+            if(OUTPUT_VALUES) {
+                output << "solution ";
+                
+                for (int i = 0; i < n; i++) {
+                    output << cplex.getValue(weights[i]) << " ";
+                }
+                output << '\n';
             }
 
-            std::cout << "ETA" << cplex.getValue(eta) << std::endl;
-            for (int t = 0; t < T; t++) {
-                DEB(cplex.getValue(dp_t[t]));
-            }
 
-            for (int t = 0; t < T; t++) {
-                DEB(cplex.getValue(dn_t[t]));
-            }
-            std::cout << "Value: " << cplex.getObjValue() << std::endl;
         }
+        
+
     }
     catch (...) {
         cerr << "Unknown exception caught" << endl;
@@ -96,18 +119,38 @@ void solveForMu0(float mu0, int n, int T, float beta, std::vector<std::vector<fl
 }
 
 void solve(string input_file, string output_file, float beta) {
+    auto start = std::chrono::high_resolution_clock::now();
+    cout << "Solving "<< output_file << std::endl;
+
     Instance instance(input_file);
-    instance.print();
+    std::ofstream output(output_file);
 
+    outputKeyValue("tickers", instance.tickers.size(), output);
+    if(OUTPUT_VALUES) outputSpaceSeparated(instance.tickers, output);
+    
+    output << "cdd beta=" << beta << " " << instance.scenario_returns[0].size() << "\n";
     // Preprocessing
-
     std::vector<float> expected_returns = instance.getExpectedReturns();
 
     float max_expected_return = *max_element(expected_returns.begin(), expected_returns.end());
 
-    for(float mu0 = 0.01; mu0 <= max_expected_return; mu0 += 0.01) {
-        solveForMu0(mu0, instance.n, instance.T, beta, instance.scenario_returns, expected_returns);
+    auto end_precalc = std::chrono::high_resolution_clock::now();
+    outputKeyValue("precalc(us)", chrono::duration_cast<chrono::microseconds>(end_precalc - start).count(), output);
+    output << std::endl;
+    
+    for(int i = 1; i <= 100; i++) {    
+        solveForMu0(max_expected_return * i / 100, instance.n, instance.T, beta, instance.scenario_returns, expected_returns, output);
+        std::cout << i << "/" << 100 << "\n";
+        output << std::endl;
+
     }
+    auto end_total_time = std::chrono::high_resolution_clock::now();
+
+    outputKeyValue("total_time(us)", chrono::duration_cast<chrono::microseconds>(end_total_time - start).count(), output);
+    std::cout << "Solved "<< output_file << std::endl;
+
+    output.close();
+
 }
 
 int main(int argc, char **argv) {
@@ -117,11 +160,11 @@ int main(int argc, char **argv) {
     }
     string input_file = argv[1];
 
-    string output_file = getOutputFileString(input_file);
-
-    for(auto b: BETA_VALUES) {
-        solve(input_file, output_file, b);
+    for(int i = 0; i < BETA_VALUES_LENGTH; i++) {
+        string output_file = getOutputFileString(input_file, "cdd_beta_" + std::to_string(i));
+        solve(input_file, output_file, BETA_VALUES[i]);
     }
+
 
     return 0;
 } // END main
