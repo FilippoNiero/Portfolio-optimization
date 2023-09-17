@@ -8,22 +8,24 @@ import bs4 as bs
 import requests
 import datetime
 
+
+start_date = datetime.datetime(2013, 9, 1)
+end_date = datetime.datetime(2023, 9, 1) #included
+
 resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
 soup = bs.BeautifulSoup(resp.text, 'lxml')
 table = soup.find('table', {'class': 'wikitable sortable'})
 
-ticker_list = [""]
+ticker_list = ['BF-B', 'BRK-B'] # Download tickers manually
 
-# for row in table.findAll('tr')[1:]:
-#     ticker = row.findAll('td')[0].text
-#     ticker_list.append(ticker)
+for row in table.findAll('tr')[1:]:
+    ticker = row.findAll('td')[0].text
+    ticker_list.append(ticker)
 
-# ticker_list = [s.replace('\n', '') for s in ticker_list]
+ticker_list = [s.replace('\n', '') for s in ticker_list]
 
+ticker_list.sort()
 print(ticker_list)
-# Calculate the start date 12 years ago from the current date
-end_date = datetime.datetime.now()
-start_date = end_date - datetime.timedelta(days=20 * 365)
 
 # Create a directory to store the CSV files
 data_dir = 'sp500_data'
@@ -36,7 +38,7 @@ progress_bar = tqdm(ticker_list, unit="stock")
 for ticker in progress_bar:
     try:
         # Download data for the current stock
-        data = yf.download(ticker, start=start_date, end=end_date)
+        data = yf.download(ticker, start=start_date, end=end_date + datetime.timedelta(days=1))
         
         data = data[['Open', 'Close']] # Only keep open, close
 
