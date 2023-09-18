@@ -11,8 +11,16 @@ const std::string OUTPUT_DIRECTORY = "out/";
 const float BETA_VALUES[] = {0.05,0.1,0.2,0.5,0.9,1};
 const float BETA_VALUES_LENGTH = 6;
 const bool OUTPUT_VALUES = false;
+const bool SINGLE_MU0 = false;
+const double TARGET_MU0 = 0.05; // 5 % 
+
 
 const int TIME_LIMIT = 100; //seconds
+
+float annualReturnToDailyReturn(float annualReturn) {
+    // There are approximately 252 trading days in a year
+    return float(pow(double(1 + annualReturn), double(1.0/252)) - 1);
+}
 
 std::string getOutputFileString(std::string input_file, std::string label) {
     return OUTPUT_DIRECTORY + label + "_" + input_file.substr(input_file.find_last_of("/\\") + 1);

@@ -3,3 +3,10 @@ run_instances.txt
 cdd
 markowitz
 out/*
+instances/*
+run_instances.txt
+old_performance_result/*
+performance_simulation_results/*
+performance_single_mu0/*
+performance_simulation_results/*
+.run_instances.txt
