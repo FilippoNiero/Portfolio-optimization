@@ -99,7 +99,7 @@ void solveForMu0(float mu0, int n, int T, std::vector<float> const &expected_ret
 void solve(string input_file, string output_file) {
     auto start = std::chrono::high_resolution_clock::now();
 
-    cout << "Solving "<< output_file << std::endl;
+    cout << "Markowitz: solving "<< output_file << std::endl;
     Instance instance(input_file);
     std::ofstream output(output_file);
 
@@ -140,15 +140,19 @@ void solve(string input_file, string output_file) {
     // }
 
     // Solve for a specific mu0
-    for(int i = 1; i <= 100; i++) {
-        solveForMu0(max_expected_return * i / 100 , instance.n, instance.T, expected_returns, covariance, output);
-        std::cout << i << "/" << 100 << "\n";
-        output << std::endl;
+    if(SINGLE_MU0) {
+        solveForMu0(annualReturnToDailyReturn(TARGET_MU0), instance.n, instance.T, expected_returns, covariance, output);
+    }else {
+        for(int i = 1; i <= 100; i++) {
+            solveForMu0(max_expected_return * i / 100 , instance.n, instance.T, expected_returns, covariance, output);
+            std::cout << i << "/" << 100 << "\n";
+            output << std::endl;
+        }
     }
     auto end_total_time = std::chrono::high_resolution_clock::now();
 
     outputKeyValue("total_time(us)", chrono::duration_cast<chrono::microseconds>(end_total_time - start).count(), output);
-    std::cout << "Solved "<< output_file << std::endl;
+    std::cout << "Markowitz: solved "<< output_file << std::endl;
     output.close();
 
 }
