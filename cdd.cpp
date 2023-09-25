@@ -139,6 +139,12 @@ void solve(string input_file, string output_file, float beta) {
     output << std::endl;
     
     if(SINGLE_MU0) {
+        if(annualReturnToDailyReturn(TARGET_MU0) > max_expected_return) {
+            std::cout << "mu0 bound is too high, exiting!" << std::endl;
+            output << "mu0 bound is too high, exiting!" << std::endl;
+            output.close();
+            return;
+        }
         solveForMu0(annualReturnToDailyReturn(TARGET_MU0), instance.n, instance.T, beta, instance.scenario_returns, expected_returns, output);
     }else {
         for(int i = 1; i <= 100; i++) {    

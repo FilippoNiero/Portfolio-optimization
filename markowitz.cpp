@@ -48,8 +48,8 @@ void solveForMu0(float mu0, int n, int T, std::vector<float> const &expected_ret
             
         IloCplex cplex(model);
         
-        cplex.setOut(env.getNullStream()); // Silence console output
-        cplex.setWarning(env.getNullStream()); // Silence diagonal perturbation warning
+        // cplex.setOut(env.getNullStream()); // Silence console output
+        // cplex.setWarning(env.getNullStream()); // Silence diagonal perturbation warning
         
         cplex.setParam(IloCplex::Param::TimeLimit, TIME_LIMIT);
 
@@ -141,6 +141,12 @@ void solve(string input_file, string output_file) {
 
     // Solve for a specific mu0
     if(SINGLE_MU0) {
+        if(annualReturnToDailyReturn(TARGET_MU0) > max_expected_return) {
+            std::cout << "mu0 bound is too high, exiting!" << std::endl;
+            output << "mu0 bound is too high, exiting!" << std::endl;
+            output.close();
+            return;
+        }
         solveForMu0(annualReturnToDailyReturn(TARGET_MU0), instance.n, instance.T, expected_returns, covariance, output);
     }else {
         for(int i = 1; i <= 100; i++) {

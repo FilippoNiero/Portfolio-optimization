@@ -8,11 +8,11 @@
 
 
 const std::string OUTPUT_DIRECTORY = "out/";
-const float BETA_VALUES[] = {0.05,0.1,0.2,0.5,0.9,1};
-const float BETA_VALUES_LENGTH = 6;
-const bool OUTPUT_VALUES = false;
-const bool SINGLE_MU0 = false;
-const double TARGET_MU0 = 0.05; // 5 % 
+const float BETA_VALUES[] = {0.01, 0.1, 0.5};
+const float BETA_VALUES_LENGTH = 3;
+const bool OUTPUT_VALUES = true;
+const bool SINGLE_MU0 = true;
+const double TARGET_MU0 = 0.07; // Annual rate 
 
 
 const int TIME_LIMIT = 100; //seconds
