@@ -38,19 +38,17 @@ def get_daily_returns_by_ticker(data_dir='sp500_data', date_limit=None):
             ticker_name = os.path.splitext(filename)[0]
             file_path = os.path.join(data_dir, filename)
             df = pd.read_csv(file_path, parse_dates=['Date'])
-            
             if date_limit:
                 # Filter the DataFrame to include only rows earlier than the date limit
                 df = df[df['Date'] <= date_limit]
+            # Calculate the daily returns 
 
-            # Calculate the daily returns using the Open and Close prices
-            df['Daily_Return'] = ((df['Close'] - df['Open']) / df['Open']).round(5)
+            yest_close = df['Close'].shift(1)
 
             # Extract the list of daily returns
-            returns = df['Daily_Return'].tolist()
-
+            returns = df['Close'] / yest_close  - 1
             # Store the daily returns in the dictionary
-            daily_returns_by_ticker[ticker_name] = returns
+            daily_returns_by_ticker[ticker_name] = [round(x, 5) for x in returns.to_list()[1:]]
 
     return daily_returns_by_ticker
 
@@ -103,16 +101,16 @@ def generate_block_scenario(block_size, num_scenarios, end_date, file_name=''):
         block_scenarios_by_ticker[ticker_name] = []
 
     assert block_size > 0, 'Block size should be at least 1'
-
+    tmp_num_scenarios = num_scenarios
     # Generate block scenarios for each asset
-    while num_scenarios > 0:
+    while tmp_num_scenarios > 0:
         # Determine the block size for this iteration
-        current_block_size = min(block_size, num_scenarios)
+        current_block_size = min(block_size, tmp_num_scenarios)
         day = random.randrange(daily_returns_length - current_block_size + 1)
         for ticker_name in ticker_names:
             for i in range(current_block_size):
                 block_scenarios_by_ticker[ticker_name].append(daily_returns[ticker_name][day + i])
-        num_scenarios -= current_block_size
+        tmp_num_scenarios -= current_block_size
 
     write_scenarios_to_file(ticker_names, block_scenarios_by_ticker, num_scenarios, file_name)
     return block_scenarios_by_ticker
@@ -129,6 +127,7 @@ def main():
     # Add an optional parameter for the block_size (only for 'block' scenario)
     parser.add_argument('--block_size', type=int, help='Specify the number for the "block_size" scenario')
     parser.add_argument('--file_name', default='',type=str, help='Specify the output file name')
+    parser.add_argument('--random_seed', default=0,type=int, help='Specify the random seed')
     
     # Add parameters for the number of scenarios and end date
     parser.add_argument('--num_scenarios', type=int, required=True, help='Specify the number of scenarios')
@@ -136,7 +135,7 @@ def main():
     
     args = parser.parse_args()
     
-    random.seed(args.num_scenarios) # fixed random seed to reproduce the same instance
+    random.seed(args.random_seed) # fixed random seed to reproduce the same instance
     
     if args.generation_type == 'boot':
         # Call the function for boot scenario
