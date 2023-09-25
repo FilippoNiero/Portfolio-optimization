@@ -3,9 +3,10 @@ CC = g++
 CFLAGS = -std=c++11 -Wall
 
 # !!! Change with your paths for cplex
-INCLUDES = -I/home/filippo/Documents/Uni/2023/Tesi/ibm/cplex/include/ -I/home/filippo/Documents/Uni/2023/Tesi/ibm/concert/include/
 
-LIB_DIRS = -L/home/filippo/Documents/Uni/2023/Tesi/ibm/concert/lib/x86-64_linux/static_pic -L/home/filippo/Documents/Uni/2023/Tesi/ibm/cplex/lib/x86-64_linux/static_pic
+INCLUDES = -I/path/to/cplex/cplexXX/include -I/path/to/cplex/concertYY/include
+
+LIB_DIRS = -Lpath/to/cplex/cplexXX/include -L/path/to/cplex/concertYY/lib/archi/tecture
 
 LIBS = -lilocplex -lconcert -lcplex -lm -lpthread -ldl
 
